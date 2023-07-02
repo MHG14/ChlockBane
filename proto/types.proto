@@ -34,3 +34,17 @@ message Transaction {
     repeated TxInput inputs = 2;
     repeated TxOutput outputs = 3; 
 }
+
+message Ack { }
+
+
+service Node {
+    rpc HandleTransaction(Transaction) returns (Ack);
+    rpc Handshake(Version) returns(Version);
+}
+
+
+message Version {
+    string version = 1;
+    int32 height = 2;
+}
