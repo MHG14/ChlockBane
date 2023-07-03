@@ -3,7 +3,7 @@ build:
 
 
 run: build
-	@./bin/docker
+	@./bin/ChlockBane
 
 test:
 	go test ./... -v -count=1

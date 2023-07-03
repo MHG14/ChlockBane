@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"net"
-	"time"
 
 	"github.com/mhg14/ChlockBane/node"
 	"github.com/mhg14/ChlockBane/proto"
@@ -14,23 +11,30 @@ import (
 )
 
 func main() {
-	node := node.NewNode()
-	ln, err := net.Listen("tcp", ":3000")
-	if err != nil {
-		log.Fatal(err)
-	}
-	grpcServer := grpc.NewServer(grpc.EmptyServerOption{})
-	proto.RegisterNodeServer(grpcServer, node)
-	fmt.Println("node running on port", ":3000")
+	makeNode(":3000", []string{})
+	makeNode(":4000", []string{":3000"})
 
-	go func() {
-		for {
-			time.Sleep(2 * time.Second)
-			makeTransaction()
+	// go func() {
+	// 	for {
+	// 		time.Sleep(2 * time.Second)
+	// 		makeTransaction()
+	// 	}
+	// }()
+
+	// log.Fatal(node.Start(":3000"))
+	select {}
+}
+
+func makeNode(listenAddr string, bootstrapNodes []string) *node.Node {
+	n := node.NewNode()
+	go n.Start(listenAddr)
+	if len(bootstrapNodes) > 0 {
+		if err := n.BootstrapNetwork(bootstrapNodes); err != nil {
+			log.Fatal(err)
 		}
-	}()
+	}
 
-	grpcServer.Serve(ln)
+	return n
 }
 
 func makeTransaction() {
@@ -42,8 +46,9 @@ func makeTransaction() {
 	c := proto.NewNodeClient(client)
 
 	version := &proto.Version{
-		Version: "ChlockBane-0.1",
-		Height:  1,
+		Version:    "ChlockBane-0.1",
+		Height:     1,
+		ListenAddr: ":3000",
 	}
 
 	_, err = c.Handshake(context.TODO(), version, grpc.EmptyCallOption{})
