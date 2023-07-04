@@ -10,7 +10,11 @@ import (
 )
 
 func SignBlock(privKey *crypto.PrivateKey, block *proto.Block) *crypto.Signature {
-	return privKey.Sign(HashBlock(block))
+	hash := HashBlock(block)
+	signature := privKey.Sign(hash)
+	block.PublicKey = privKey.Public().Bytes()
+	block.Signature = signature.Bytes()
+	return signature
 }
 
 // This function returns a SHA256 of only the block header
@@ -25,4 +29,20 @@ func HashHeader(header *proto.Header) []byte {
 	}
 	hash := sha256.Sum256(b)
 	return hash[:] // converting an array to a slice and returning the slice
+}
+
+
+
+func VerifyBlock(b *proto.Block) bool {
+	if len(b.PublicKey) != crypto.PublicKeyLen {
+		return false
+	}
+
+	if len(b.Signature) != crypto.SigLen {
+		return false
+	}
+	sig := crypto.SignatureFromBytes(b.Signature)
+	pubKey := crypto.PublicKeyFromBytes(b.PublicKey)
+	hash := HashBlock(b)
+	return sig.Verify(pubKey, hash)
 }
