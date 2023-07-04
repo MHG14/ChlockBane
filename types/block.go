@@ -24,5 +24,5 @@ func HashHeader(header *proto.Header) []byte {
 		panic(err)
 	}
 	hash := sha256.Sum256(b)
-	return hash[:] // converting an arrya to a slice and returning the slice
+	return hash[:] // converting an array to a slice and returning the slice
 }
