@@ -19,9 +19,45 @@ type TXStorer interface {
 	Get(string) (*proto.Transaction, error)
 }
 
+type UTXOStorer interface {
+	Put(string, *UTXO) error
+	Get(string) (*UTXO, error)
+}
+
 type MemoryTXStore struct {
 	lock sync.RWMutex
 	txx  map[string]*proto.Transaction
+}
+
+type MemoryUTXOStore struct {
+	lock sync.RWMutex
+	data map[string]*UTXO
+}
+
+func NewMemoryUTXOStore() *MemoryUTXOStore {
+	return &MemoryUTXOStore{
+		data: make(map[string]*UTXO),
+	}
+}
+
+func (s *MemoryUTXOStore) Get(hash string) (utxo *UTXO, err error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	utxo, ok := s.data[hash]
+	if !ok {
+		return nil, fmt.Errorf("could not fin UTXO with hash %s", hash)
+	}
+
+	return utxo, nil
+}
+
+func (s *MemoryUTXOStore) Put(key string, utxo *UTXO) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.data[key] = utxo
+	return nil
 }
 
 func NewMemoryTXStore() *MemoryTXStore {
@@ -29,7 +65,6 @@ func NewMemoryTXStore() *MemoryTXStore {
 		txx: make(map[string]*proto.Transaction),
 	}
 }
-
 
 func (s *MemoryTXStore) Get(hash string) (*proto.Transaction, error) {
 	s.lock.RLock()
@@ -49,8 +84,6 @@ func (s *MemoryTXStore) Put(tx *proto.Transaction) error {
 	s.txx[hash] = tx
 	return nil
 }
-
-
 
 type MemoryBlockStore struct {
 	lock   sync.RWMutex
