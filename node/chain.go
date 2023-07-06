@@ -10,7 +10,10 @@ import (
 	"github.com/mhg14/ChlockBane/types"
 )
 
+const godSeed = "6bc49ae98a0f9a9df49427788eb7c73f30299165035c040ab8b4ef56c97b2480"
+
 type Chain struct {
+	txStore    TXStorer
 	blockStore BlockStorer
 	headers    *HeaderList
 }
@@ -44,9 +47,10 @@ func (list *HeaderList) Get(index int) *proto.Header {
 	return list.headers[index]
 }
 
-func NewChain(bs BlockStorer) *Chain {
+func NewChain(bs BlockStorer, txStore TXStorer) *Chain {
 	chain := &Chain{
 		blockStore: bs,
+		txStore:    txStore,
 		headers:    NewHeaderList(),
 	}
 
@@ -70,6 +74,14 @@ func (c *Chain) GetBlockByHash(hash []byte) (*proto.Block, error) {
 
 func (c *Chain) addBlock(b *proto.Block) error {
 	c.headers.Add(b.Header)
+
+	for _, tx := range b.Transactions {
+		fmt.Println("NEW TX", hex.EncodeToString(types.HashTransaction(tx)))
+		if err := c.txStore.Put(tx); err != nil {
+			return err
+		}
+	}
+
 	return c.blockStore.Put(b)
 }
 
@@ -92,7 +104,6 @@ func (c *Chain) ValidateBlock(b *proto.Block) error {
 		return fmt.Errorf("invalid block signature")
 	}
 
-
 	// Validate if the prevHash is the actual hash of the current block
 	currentBlock, err := c.GetBlockByHeight(c.Height())
 	if err != nil {
@@ -108,12 +119,23 @@ func (c *Chain) ValidateBlock(b *proto.Block) error {
 }
 
 func createGenesisBlock() *proto.Block {
-	privKey := crypto.GeneratePrivateKey()
+	privKey := crypto.NewPrivateKeyFromSeedString(godSeed)
 	block := &proto.Block{
 		Header: &proto.Header{
 			Version: 1,
 		},
 	}
+
+	tx := &proto.Transaction{
+		Version: 1,
+		Inputs:  []*proto.TxInput{},
+		Outputs: []*proto.TxOutput{{
+			Amount:  1000,
+			Address: privKey.Public().Address().Bytes(),
+		}},
+	}
+
+	block.Transactions = append(block.Transactions, tx)
 
 	types.SignBlock(privKey, block)
 
