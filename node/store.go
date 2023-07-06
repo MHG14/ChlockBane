@@ -20,7 +20,7 @@ type TXStorer interface {
 }
 
 type UTXOStorer interface {
-	Put(string, *UTXO) error
+	Put(*UTXO) error
 	Get(string) (*UTXO, error)
 }
 
@@ -52,9 +52,11 @@ func (s *MemoryUTXOStore) Get(hash string) (utxo *UTXO, err error) {
 	return utxo, nil
 }
 
-func (s *MemoryUTXOStore) Put(key string, utxo *UTXO) error {
+func (s *MemoryUTXOStore) Put(utxo *UTXO) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+
+	key := fmt.Sprintf("%s_%d", utxo.Hash, utxo.OutIndex)
 
 	s.data[key] = utxo
 	return nil

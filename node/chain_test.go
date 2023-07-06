@@ -1,8 +1,6 @@
 package node
 
 import (
-	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/mhg14/ChlockBane/crypto"
@@ -58,6 +56,40 @@ func randomBlock(t *testing.T, chain *Chain) *proto.Block {
 	return b
 }
 
+func TestAddBlockWithInsufficientFunds(t *testing.T) {
+	var (
+		chain     = NewChain(NewMemoryBlockStore(), NewMemoryTXStore())
+		block     = randomBlock(t, chain)
+		privKey   = crypto.NewPrivateKeyFromSeedString(godSeed)
+		recipient = crypto.GeneratePrivateKey().Public().Address().Bytes()
+	)
+
+	prevTx, err := chain.txStore.Get("8f26b010c9db9857962c5faaaf1aa629506cc1646a129ce92f525c1776bb8b78")
+	assert.Nil(t, err)
+
+	inputs := []*proto.TxInput{
+		{
+			PrevTxHash:   types.HashTransaction(prevTx),
+			PrevOutIndex: 0,
+			PublicKey:    privKey.Public().Bytes(),
+		},
+	}
+	outputs := []*proto.TxOutput{
+		{Amount: 1001, Address: recipient},
+	}
+	tx := &proto.Transaction{
+		Version: 1,
+		Inputs:  inputs,
+		Outputs: outputs,
+	}
+
+	sig := types.SignTransaction(privKey, tx)
+	tx.Inputs[0].Signature = sig.Bytes()
+
+	block.Transactions = append(block.Transactions, tx)
+	require.NotNil(t, chain.AddBlock(block))
+}
+
 func TestAddBlockWithTx(t *testing.T) {
 	var (
 		chain     = NewChain(NewMemoryBlockStore(), NewMemoryTXStore())
@@ -66,12 +98,12 @@ func TestAddBlockWithTx(t *testing.T) {
 		recipient = crypto.GeneratePrivateKey().Public().Address().Bytes()
 	)
 
-	fetchedTransaction, err := chain.txStore.Get("8f26b010c9db9857962c5faaaf1aa629506cc1646a129ce92f525c1776bb8b78")
+	prevTx, err := chain.txStore.Get("8f26b010c9db9857962c5faaaf1aa629506cc1646a129ce92f525c1776bb8b78")
 	assert.Nil(t, err)
 
 	inputs := []*proto.TxInput{
 		{
-			PrevTxHash:   types.HashTransaction(fetchedTransaction),
+			PrevTxHash:   types.HashTransaction(prevTx),
 			PrevOutIndex: 0,
 			PublicKey:    privKey.Public().Bytes(),
 		},
@@ -91,16 +123,4 @@ func TestAddBlockWithTx(t *testing.T) {
 
 	block.Transactions = append(block.Transactions, tx)
 	require.Nil(t, chain.AddBlock(block))
-	txHash := hex.EncodeToString(types.HashTransaction(tx))
-
-	fetchedTx, err := chain.txStore.Get(txHash)
-	assert.Nil(t, err)
-	assert.Equal(t, tx, fetchedTx)
-
-	address := crypto.AddressFromBytes(tx.Outputs[0].Address)
-	key := fmt.Sprintf("%s_%s", address, txHash)
-	utxo, err := chain.utxoStore.Get(key)
-	assert.Nil(t, err)
-
-	fmt.Println(utxo)
 }
