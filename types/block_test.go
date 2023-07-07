@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/mhg14/ChlockBane/crypto"
+	"github.com/mhg14/ChlockBane/proto"
 	"github.com/mhg14/ChlockBane/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -30,11 +31,22 @@ func TestSignVerifyBlock(t *testing.T) {
 
 	assert.True(t, VerifyBlock(block))
 
-	
-
 	invalidPrivKey := crypto.GeneratePrivateKey()
 	block.PublicKey = invalidPrivKey.Public().Bytes()
 
 	assert.False(t, VerifyBlock(block))
+}
 
+func TestCalculateRootHash(t *testing.T) {
+	var (
+		privKey = crypto.GeneratePrivateKey()
+		block   = util.RandomBlock()
+		tx      = &proto.Transaction{
+			Version: 1,
+		}
+	)
+	block.Transactions = append(block.Transactions, tx)
+	SignBlock(privKey, block)
+	assert.True(t, VerifyRootHash(block))
+	// assert.Equal(t, 32, len(block.Header.RootHash))
 }
