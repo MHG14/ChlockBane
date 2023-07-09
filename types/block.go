@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"crypto/sha256"
+	"log"
 
 	"github.com/cbergoon/merkletree"
 	"github.com/mhg14/ChlockBane/crypto"
@@ -31,19 +32,18 @@ func (h TxHash) Equals(other merkletree.Content) (bool, error) {
 }
 
 func SignBlock(privKey *crypto.PrivateKey, block *proto.Block) *crypto.Signature {
-	hash := HashBlock(block)
-	signature := privKey.Sign(hash)
-	block.PublicKey = privKey.Public().Bytes()
-	block.Signature = signature.Bytes()
-
 	if len(block.Transactions) > 0 {
 		tree, err := GetMerkleTree(block)
 		if err != nil {
 			panic(err)
 		}
-
 		block.Header.RootHash = tree.MerkleRoot()
 	}
+
+	hash := HashBlock(block)
+	signature := privKey.Sign(hash)
+	block.PublicKey = privKey.Public().Bytes()
+	block.Signature = signature.Bytes()
 
 	return signature
 }
@@ -65,15 +65,18 @@ func HashHeader(header *proto.Header) []byte {
 func VerifyBlock(b *proto.Block) bool {
 	if len(b.Transactions) > 0 {
 		if !VerifyRootHash(b) {
+			log.Println("INVALID ROOT HASH")
 			return false
 		}
 	}
-	
+
 	if len(b.PublicKey) != crypto.PublicKeyLen {
+		log.Println("INVALID PUBLIC KEY LENGTH")
 		return false
 	}
 
 	if len(b.Signature) != crypto.SigLen {
+		log.Println("INVALID SIGNATURE LENGTH")
 		return false
 	}
 	sig := crypto.SignatureFromBytes(b.Signature)
